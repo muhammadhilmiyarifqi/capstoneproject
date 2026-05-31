@@ -2,42 +2,148 @@ import streamlit as st
 import pandas as pd
 from pathlib import Path
 
-st.set_page_config(page_title="Student Performance Dashboard", layout="wide", page_icon="🎓")
+st.set_page_config(page_title="Student Performance Dashboard", layout="wide")
 
-# Custom CSS for better aesthetics
-st.markdown("""
+def _inject_theme_css(theme: str) -> None:
+    if theme == "Dark":
+        palette = {
+            "app_bg": "#0b1220",
+            "text": "#e5e7eb",
+            "muted": "#9ca3af",
+            "card_bg": "#0f172a",
+            "card_border": "rgba(148, 163, 184, 0.18)",
+            "sidebar_bg": "#0b1220",
+            "sidebar_border": "rgba(148, 163, 184, 0.22)",
+            "accent_1": "#60a5fa",
+            "accent_2": "#34d399",
+            "accent_3": "#a78bfa",
+            "accent_4": "#fb7185",
+        }
+    else:
+        palette = {
+            "app_bg": "#f8fafc",
+            "text": "#0f172a",
+            "muted": "#64748b",
+            "card_bg": "#ffffff",
+            "card_border": "rgba(15, 23, 42, 0.10)",
+            "sidebar_bg": "#e0f2fe",
+            "sidebar_border": "rgba(15, 23, 42, 0.10)",
+            "accent_1": "#2563eb",
+            "accent_2": "#16a34a",
+            "accent_3": "#7c3aed",
+            "accent_4": "#db2777",
+        }
+
+    st.markdown(
+        f"""
 <style>
-    .main {
-        background-color: #f8f9fa;
-    }
-    .metric-card {
-        background-color: white;
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        text-align: center;
-    }
-    .metric-value {
-        font-size: 2rem;
+    :root {{
+        --app-bg: {palette['app_bg']};
+        --text: {palette['text']};
+        --muted: {palette['muted']};
+        --card-bg: {palette['card_bg']};
+        --card-border: {palette['card_border']};
+        --sidebar-bg: {palette['sidebar_bg']};
+        --sidebar-border: {palette['sidebar_border']};
+        --accent-1: {palette['accent_1']};
+        --accent-2: {palette['accent_2']};
+        --accent-3: {palette['accent_3']};
+        --accent-4: {palette['accent_4']};
+    }}
+
+    [data-testid="stAppViewContainer"] {{
+        background: var(--app-bg);
+        color: var(--text);
+    }}
+
+    [data-testid="stAppViewContainer"] h1,
+    [data-testid="stAppViewContainer"] h2,
+    [data-testid="stAppViewContainer"] h3,
+    [data-testid="stAppViewContainer"] h4,
+    [data-testid="stAppViewContainer"] h5,
+    [data-testid="stAppViewContainer"] h6,
+    [data-testid="stAppViewContainer"] p,
+    [data-testid="stAppViewContainer"] li,
+    [data-testid="stAppViewContainer"] span {{
+        color: var(--text);
+    }}
+
+    [data-testid="stHeader"] {{
+        background: transparent;
+    }}
+
+    [data-testid="stSidebar"] > div:first-child {{
+        background: var(--sidebar-bg);
+        border-right: 1px solid var(--sidebar-border);
+    }}
+
+    [data-testid="stSidebar"] * {{
+        color: var(--text);
+    }}
+
+    .sidebar-title {{
+        font-size: 1.1rem;
         font-weight: 700;
-        color: #2c3e50;
-    }
-    .metric-label {
-        font-size: 1rem;
-        color: #7f8c8d;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.35);
+        border: 1px solid var(--sidebar-border);
+        margin-bottom: 10px;
+    }}
+
+    .section-title {{
+        color: var(--text);
+        margin-top: 26px;
+        margin-bottom: 14px;
+        font-weight: 700;
+        border-bottom: 2px solid var(--accent-1);
+        padding-bottom: 8px;
+        font-size: 1.15rem;
+    }}
+
+    .metric-card {{
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 16px;
+        padding: 16px 18px;
+        box-shadow: 0 10px 24px rgba(2, 6, 23, 0.08);
+        text-align: left;
+    }}
+
+    .metric-card[data-accent="a1"] {{ border-left: 6px solid var(--accent-1); }}
+    .metric-card[data-accent="a2"] {{ border-left: 6px solid var(--accent-2); }}
+    .metric-card[data-accent="a3"] {{ border-left: 6px solid var(--accent-3); }}
+    .metric-card[data-accent="a4"] {{ border-left: 6px solid var(--accent-4); }}
+
+    .metric-value {{
+        font-size: 2rem;
+        font-weight: 800;
+        color: var(--text);
+        line-height: 1.1;
+        margin-top: 2px;
+    }}
+
+    .metric-label {{
+        font-size: 0.85rem;
+        color: var(--muted);
         text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-    .section-title {
-        color: #2c3e50;
-        margin-top: 30px;
-        margin-bottom: 20px;
+        letter-spacing: 0.08em;
+    }}
+
+    /* Tighten Streamlit spacing a bit */
+    .block-container {{
+        padding-top: 1.2rem;
+        padding-bottom: 2rem;
+    }}
+
+    /* Make widgets feel a bit more “cardy” inside sidebar */
+    [data-testid="stSidebar"] [data-testid="stWidgetLabel"] > div {{
         font-weight: 600;
-        border-bottom: 2px solid #3498db;
-        padding-bottom: 10px;
-    }
+    }}
 </style>
-""", unsafe_allow_html=True)
+""",
+        unsafe_allow_html=True,
+    )
 
 DATA_PATH = Path(__file__).resolve().parent / "datascience" / "StudentPerformanceFactors_analysis.csv"
 
@@ -58,7 +164,17 @@ if 'Performance_Category' in df.columns:
 # ==========================================
 # SIDEBAR FILTERS
 # ==========================================
-st.sidebar.header("Filter Data")
+if "theme_mode" not in st.session_state:
+    st.session_state.theme_mode = "Light"
+
+with st.sidebar:
+    st.markdown('<div class="sidebar-title">Settings</div>', unsafe_allow_html=True)
+    theme_mode = st.radio("Mode", ["Light", "Dark"], index=0 if st.session_state.theme_mode == "Light" else 1)
+    st.session_state.theme_mode = theme_mode
+
+_inject_theme_css(st.session_state.theme_mode)
+
+st.sidebar.markdown('<div class="sidebar-title">Filter Data</div>', unsafe_allow_html=True)
 
 # Categorical filters
 cat_cols = ['Performance_Category', 'Gender', 'School_Type', 'Motivation_Level', 'Family_Income', 'Parental_Involvement']
@@ -107,7 +223,7 @@ col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     st.markdown(f"""
-    <div class="metric-card">
+    <div class="metric-card" data-accent="a1">
         <div class="metric-value">{len(df_filtered):,}</div>
         <div class="metric-label">Total Siswa</div>
     </div>
@@ -116,7 +232,7 @@ with col1:
 avg_score = df_filtered['Exam_Score'].mean() if 'Exam_Score' in df_filtered.columns else 0
 with col2:
     st.markdown(f"""
-    <div class="metric-card">
+    <div class="metric-card" data-accent="a2">
         <div class="metric-value">{avg_score:.2f}</div>
         <div class="metric-label">Rata-rata Exam Score</div>
     </div>
@@ -129,7 +245,7 @@ if 'Performance_Category' in df_filtered.columns:
     
     with col3:
         st.markdown(f"""
-        <div class="metric-card">
+        <div class="metric-card" data-accent="a3">
             <div class="metric-value">{high_pct:.1f}%</div>
             <div class="metric-label">Siswa High Performance</div>
         </div>
@@ -137,7 +253,7 @@ if 'Performance_Category' in df_filtered.columns:
         
     with col4:
         st.markdown(f"""
-        <div class="metric-card">
+        <div class="metric-card" data-accent="a4">
             <div class="metric-value">{low_pct:.1f}%</div>
             <div class="metric-label">Siswa Low Performance</div>
         </div>
@@ -161,7 +277,7 @@ with col1_1:
 with col1_2:
     st.markdown("**Rata-rata Jam Belajar & Kehadiran (Scaled) per Kategori**")
     if 'Hours_Studied' in df_filtered.columns and 'Performance_Category' in df_filtered.columns:
-        perf_means = df_filtered.groupby('Performance_Category')[['Hours_Studied', 'Attendance']].mean()
+        perf_means = df_filtered.groupby('Performance_Category', observed=True)[['Hours_Studied', 'Attendance']].mean()
         # Scale attendance agar bisa dibandingkan dengan jam belajar dalam satu grafik
         perf_means['Attendance'] = perf_means['Attendance'] / 10
         st.bar_chart(perf_means)
@@ -176,13 +292,13 @@ col2_1, col2_2 = st.columns(2)
 with col2_1:
     st.markdown("**Jumlah Siswa berdasarkan Sesi Tutoring**")
     if 'Tutoring_Sessions' in df_filtered.columns and 'Performance_Category' in df_filtered.columns:
-        tutor_perf = df_filtered.groupby(['Tutoring_Sessions', 'Performance_Category']).size().unstack()
+        tutor_perf = df_filtered.groupby(['Tutoring_Sessions', 'Performance_Category'], observed=True).size().unstack()
         st.bar_chart(tutor_perf)
 
 with col2_2:
     st.markdown("**Jumlah Siswa berdasarkan Ekstrakurikuler**")
     if 'Extracurricular_Activities' in df_filtered.columns and 'Performance_Category' in df_filtered.columns:
-        extra_perf = df_filtered.groupby(['Extracurricular_Activities', 'Performance_Category']).size().unstack()
+        extra_perf = df_filtered.groupby(['Extracurricular_Activities', 'Performance_Category'], observed=True).size().unstack()
         st.bar_chart(extra_perf)
 
 
@@ -195,15 +311,13 @@ col3_1, col3_2 = st.columns(2)
 with col3_1:
     st.markdown("**Rata-rata Jam Tidur per Kategori Performa**")
     if 'Sleep_Hours' in df_filtered.columns and 'Performance_Category' in df_filtered.columns:
-        sleep_means = df_filtered.groupby('Performance_Category')['Sleep_Hours'].mean()
+        sleep_means = df_filtered.groupby('Performance_Category', observed=True)['Sleep_Hours'].mean()
         st.bar_chart(sleep_means)
 
 with col3_2:
     st.markdown("**Jumlah Siswa berdasarkan Keterlibatan Orang Tua**")
     if 'Parental_Involvement' in df_filtered.columns and 'Performance_Category' in df_filtered.columns:
-        parent_perf = df_filtered.groupby(['Parental_Involvement', 'Performance_Category']).size().unstack()
-        # Urutkan index jika memungkinkan
-        parent_perf = parent_perf.reindex(['Low', 'Medium', 'High'])
+        parent_perf = df_filtered.groupby(['Parental_Involvement', 'Performance_Category'], observed=True).size().unstack()
         st.bar_chart(parent_perf)
 
 
