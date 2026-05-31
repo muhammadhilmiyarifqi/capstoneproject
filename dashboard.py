@@ -1,253 +1,241 @@
-from __future__ import annotations
-
-import io
+import streamlit as st
+import pandas as pd
 from pathlib import Path
 
-import pandas as pd
-import streamlit as st
+st.set_page_config(page_title="Student Performance Dashboard", layout="wide", page_icon="🎓")
 
+# Custom CSS for better aesthetics
+st.markdown("""
+<style>
+    .main {
+        background-color: #f8f9fa;
+    }
+    .metric-card {
+        background-color: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        text-align: center;
+    }
+    .metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #2c3e50;
+    }
+    .metric-label {
+        font-size: 1rem;
+        color: #7f8c8d;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    .section-title {
+        color: #2c3e50;
+        margin-top: 30px;
+        margin-bottom: 20px;
+        font-weight: 600;
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 10px;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-st.set_page_config(page_title="Student Performance Dashboard", layout="wide")
+DATA_PATH = Path(__file__).resolve().parent / "datascience" / "StudentPerformanceFactors_analysis.csv"
 
-
-DATA_PATH = Path(__file__).resolve().parent / "datascience" / "StudentPerformanceFactors.csv"
-
-NUMERIC_COLUMNS = [
-	"Hours_Studied",
-	"Attendance",
-	"Sleep_Hours",
-	"Previous_Scores",
-	"Tutoring_Sessions",
-	"Physical_Activity",
-	"Exam_Score",
-]
-
-CATEGORICAL_FILTER_COLUMNS = [
-	"Gender",
-	"School_Type",
-	"Family_Income",
-	"Motivation_Level",
-	"Internet_Access",
-	"Extracurricular_Activities",
-]
-
-
-@st.cache_data(show_spinner=False)
-def read_csv_path(path: str) -> pd.DataFrame:
-	return pd.read_csv(path)
-
-
-def normalize_df(df: pd.DataFrame) -> pd.DataFrame:
-	df = df.copy()
-	df.columns = [str(c).strip() for c in df.columns]
-	for col in NUMERIC_COLUMNS:
-		if col in df.columns:
-			df[col] = pd.to_numeric(df[col], errors="coerce")
-	return df
-
-
-def binned_counts(series: pd.Series, bins: int = 20) -> pd.Series:
-	s = pd.to_numeric(series, errors="coerce").dropna()
-	if s.empty:
-		return pd.Series(dtype="int64")
-	binned = pd.cut(s, bins=bins)
-	counts = binned.value_counts().sort_index()
-	counts.index = counts.index.astype(str)
-	return counts
-
-
-st.title("Student Performance Dashboard")
-st.caption("Dashboard untuk dataset StudentPerformanceFactors.csv")
-
-if not DATA_PATH.exists():
-	st.error(
-		"File tidak ditemukan. Pastikan file ada di: "
-		f"{DATA_PATH}. (Letakkan StudentPerformanceFactors.csv di folder datascience/)"
-	)
-	st.stop()
+@st.cache_data
+def load_data():
+    return pd.read_csv(DATA_PATH)
 
 try:
-	df = normalize_df(read_csv_path(str(DATA_PATH)))
-except Exception as exc:
-	st.error(f"Gagal membaca CSV: {exc}")
-	st.stop()
+    df = load_data()
+except FileNotFoundError:
+    st.error(f"Dataset tidak ditemukan di {DATA_PATH}. Harap jalankan proses ekspor dataset dari notebook terlebih dahulu.")
+    st.stop()
 
-with st.sidebar:
-	st.header("Data")
-	st.markdown(f"**File digunakan:** {DATA_PATH.name}")
-	st.caption(f"Lokasi: {DATA_PATH.parent}")
+# Order Performance_Category globally
+if 'Performance_Category' in df.columns:
+    df['Performance_Category'] = pd.Categorical(df['Performance_Category'], categories=['Low', 'Medium', 'High'], ordered=True)
 
+# ==========================================
+# SIDEBAR FILTERS
+# ==========================================
+st.sidebar.header("Filter Data")
+
+# Categorical filters
+cat_cols = ['Performance_Category', 'Gender', 'School_Type', 'Motivation_Level', 'Family_Income', 'Parental_Involvement']
+filters = {}
+
+for col in cat_cols:
+    if col in df.columns:
+        options = df[col].dropna().unique().tolist()
+        # Sort options if applicable
+        if col == 'Performance_Category':
+            options = ['Low', 'Medium', 'High']
+        filters[col] = st.sidebar.multiselect(f"{col}", options=options, default=options)
+
+# Numerical filters
+num_cols = ['Hours_Studied', 'Attendance', 'Exam_Score']
+num_filters = {}
+
+for col in num_cols:
+    if col in df.columns:
+        min_val = float(df[col].min())
+        max_val = float(df[col].max())
+        num_filters[col] = st.sidebar.slider(f"{col}", min_value=min_val, max_value=max_val, value=(min_val, max_val))
+
+# Apply filters
 df_filtered = df.copy()
 
-with st.sidebar:
-	st.header("Filter")
+for col, selected in filters.items():
+    df_filtered = df_filtered[df_filtered[col].isin(selected)]
 
-	for col in CATEGORICAL_FILTER_COLUMNS:
-		if col not in df.columns:
-			continue
-		options = sorted(df[col].dropna().unique().tolist())
-		if not options:
-			continue
-		selected = st.multiselect(col, options, default=options)
-		if set(selected) != set(options):
-			df_filtered = df_filtered[df_filtered[col].isin(selected)]
-
-	for col in ("Hours_Studied", "Attendance", "Sleep_Hours", "Exam_Score"):
-		if col not in df_filtered.columns:
-			continue
-		s = pd.to_numeric(df_filtered[col], errors="coerce").dropna()
-		if s.empty:
-			continue
-		min_val = float(s.min())
-		max_val = float(s.max())
-		if min_val == max_val:
-			continue
-		low, high = st.slider(col, min_value=min_val, max_value=max_val, value=(min_val, max_val))
-		df_filtered = df_filtered[pd.to_numeric(df_filtered[col], errors="coerce").between(low, high)]
+for col, (min_val, max_val) in num_filters.items():
+    df_filtered = df_filtered[(df_filtered[col] >= min_val) & (df_filtered[col] <= max_val)]
 
 if df_filtered.empty:
-	st.warning("Tidak ada data yang cocok dengan filter yang dipilih.")
-	st.stop()
+    st.warning(" Tidak ada data yang cocok dengan filter yang dipilih.")
+    st.stop()
 
-st.caption(f"Menampilkan {len(df_filtered)} baris dari total {len(df)} baris.")
+# ==========================================
+# MAIN DASHBOARD
+# ==========================================
+st.title("Student Performance Analytics")
+st.markdown("Dashboard ini menyajikan insight mendalam menggunakan visualisasi yang sederhana dan mudah dipahami.")
 
-tab_summary, tab_charts, tab_quality = st.tabs(["Ringkasan", "Grafik", "Kualitas Data"])
+# Key Metrics
+st.markdown('<div class="section-title">Key Metrics</div>', unsafe_allow_html=True)
+col1, col2, col3, col4 = st.columns(4)
 
-with tab_summary:
-	st.subheader("Key Metrics")
+with col1:
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-value">{len(df_filtered):,}</div>
+        <div class="metric-label">Total Siswa</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-	missing_total = int(df_filtered.isna().sum().sum())
-	duplicate_total = int(df_filtered.duplicated().sum())
+avg_score = df_filtered['Exam_Score'].mean() if 'Exam_Score' in df_filtered.columns else 0
+with col2:
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-value">{avg_score:.2f}</div>
+        <div class="metric-label">Rata-rata Exam Score</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-	k1, k2, k3, k4 = st.columns(4)
-	k1.metric("Baris", value=len(df_filtered))
-	k2.metric("Kolom", value=len(df_filtered.columns))
-	k3.metric("Missing values", value=missing_total)
-	k4.metric("Duplikat", value=duplicate_total)
+if 'Performance_Category' in df_filtered.columns:
+    perf_counts = df_filtered['Performance_Category'].value_counts(normalize=True) * 100
+    high_pct = perf_counts.get('High', 0)
+    low_pct = perf_counts.get('Low', 0)
+    
+    with col3:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-value">{high_pct:.1f}%</div>
+            <div class="metric-label">Siswa High Performance</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with col4:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-value">{low_pct:.1f}%</div>
+            <div class="metric-label">Siswa Low Performance</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-	if "Exam_Score" in df_filtered.columns:
-		exam = pd.to_numeric(df_filtered["Exam_Score"], errors="coerce").dropna()
-		if not exam.empty:
-			m1, m2, m3, m4 = st.columns(4)
-			m1.metric("Rata-rata Exam_Score", value=round(float(exam.mean()), 2))
-			m2.metric("Median Exam_Score", value=round(float(exam.median()), 2))
-			m3.metric("Min Exam_Score", value=round(float(exam.min()), 2))
-			m4.metric("Max Exam_Score", value=round(float(exam.max()), 2))
 
-	st.subheader("Preview")
-	st.dataframe(df_filtered.head(50), width="stretch")
+# ==========================================
+# INSIGHT 1: JAM BELAJAR & KEHADIRAN
+# ==========================================
+st.markdown('<div class="section-title">Pengaruh Jam Belajar & Kehadiran</div>', unsafe_allow_html=True)
 
-	csv_bytes = df_filtered.to_csv(index=False).encode("utf-8")
-	st.download_button(
-		"Unduh CSV (filtered)",
-		data=csv_bytes,
-		file_name="StudentPerformanceFactors_filtered.csv",
-		mime="text/csv",
-	)
+col1_1, col1_2 = st.columns(2)
 
-with tab_charts:
-	if "Exam_Score" in df_filtered.columns:
-		st.subheader("Distribusi Exam_Score")
-		counts = binned_counts(df_filtered["Exam_Score"], bins=20)
-		if not counts.empty:
-			st.bar_chart(counts)
+with col1_1:
+    st.markdown("**Korelasi Numerik dengan Ujian**")
+    numeric_df = df_filtered.select_dtypes(include="number")
+    if 'Exam_Score' in numeric_df.columns and len(numeric_df.columns) > 1:
+        corr = numeric_df.corr()['Exam_Score'].drop('Exam_Score').sort_values()
+        st.bar_chart(corr)
 
-	if {"Hours_Studied", "Exam_Score"}.issubset(df_filtered.columns):
-		st.subheader("Hours_Studied vs Exam_Score")
-		scatter_df = df_filtered[["Hours_Studied", "Exam_Score"]].dropna()
-		if not scatter_df.empty:
-			st.scatter_chart(scatter_df, x="Hours_Studied", y="Exam_Score")
+with col1_2:
+    st.markdown("**Rata-rata Jam Belajar & Kehadiran (Scaled) per Kategori**")
+    if 'Hours_Studied' in df_filtered.columns and 'Performance_Category' in df_filtered.columns:
+        perf_means = df_filtered.groupby('Performance_Category')[['Hours_Studied', 'Attendance']].mean()
+        # Scale attendance agar bisa dibandingkan dengan jam belajar dalam satu grafik
+        perf_means['Attendance'] = perf_means['Attendance'] / 10
+        st.bar_chart(perf_means)
 
-	if {"Attendance", "Exam_Score"}.issubset(df_filtered.columns):
-		st.subheader("Attendance vs Exam_Score")
-		scatter_df = df_filtered[["Attendance", "Exam_Score"]].dropna()
-		if not scatter_df.empty:
-			st.scatter_chart(scatter_df, x="Attendance", y="Exam_Score")
 
-	numeric_df = df_filtered.select_dtypes(include="number")
-	if "Exam_Score" in numeric_df.columns and len(numeric_df.columns) > 1:
-		st.subheader("Korelasi Numerik terhadap Exam_Score")
-		corr = numeric_df.corr(numeric_only=True)["Exam_Score"].drop(labels=["Exam_Score"]).dropna()
-		corr = corr.reindex(corr.abs().sort_values(ascending=False).index)
-		st.dataframe(corr.to_frame("corr").head(10), width="stretch")
-		st.bar_chart(corr.head(10))
+# ==========================================
+# INSIGHT 2: TUTORING & EKSTRAKURIKULER
+# ==========================================
+st.markdown('<div class="section-title">Pengaruh Tutoring & Ekstrakurikuler</div>', unsafe_allow_html=True)
+col2_1, col2_2 = st.columns(2)
 
-	group_candidates = [
-		c
-		for c in [
-			"Gender",
-			"School_Type",
-			"Family_Income",
-			"Motivation_Level",
-			"Access_to_Resources",
-			"Parental_Involvement",
-			"Internet_Access",
-			"Extracurricular_Activities",
-		]
-		if c in df_filtered.columns
-	]
-	if "Exam_Score" in df_filtered.columns and group_candidates:
-		st.subheader("Rata-rata Exam_Score per Kategori")
-		group_col = st.selectbox("Kelompokkan berdasarkan", options=group_candidates)
+with col2_1:
+    st.markdown("**Jumlah Siswa berdasarkan Sesi Tutoring**")
+    if 'Tutoring_Sessions' in df_filtered.columns and 'Performance_Category' in df_filtered.columns:
+        tutor_perf = df_filtered.groupby(['Tutoring_Sessions', 'Performance_Category']).size().unstack()
+        st.bar_chart(tutor_perf)
 
-		tmp = df_filtered[[group_col, "Exam_Score"]].copy()
-		tmp[group_col] = tmp[group_col].fillna("Missing")
-		grouped = (
-			tmp.groupby(group_col)["Exam_Score"]
-			.agg(mean="mean", count="size")
-			.sort_values(by="mean", ascending=False)
-		)
+with col2_2:
+    st.markdown("**Jumlah Siswa berdasarkan Ekstrakurikuler**")
+    if 'Extracurricular_Activities' in df_filtered.columns and 'Performance_Category' in df_filtered.columns:
+        extra_perf = df_filtered.groupby(['Extracurricular_Activities', 'Performance_Category']).size().unstack()
+        st.bar_chart(extra_perf)
 
-		st.dataframe(grouped, width="stretch")
-		st.bar_chart(grouped["mean"])
 
-with tab_quality:
-	st.subheader("Missing Values per Kolom")
-	missing = df_filtered.isna().sum()
-	missing_pct = (missing / len(df_filtered) * 100).round(2)
-	missing_df = (
-		pd.DataFrame({"missing": missing, "missing_%": missing_pct})
-		.sort_values(by="missing", ascending=False)
-		.reset_index(names="column")
-	)
-	st.dataframe(missing_df, width="stretch")
+# ==========================================
+# INSIGHT 3: TIDUR & ORANG TUA
+# ==========================================
+st.markdown('<div class="section-title">Kualitas Tidur & Keterlibatan Orang Tua</div>', unsafe_allow_html=True)
+col3_1, col3_2 = st.columns(2)
 
-	st.subheader("Tipe Data & Ringkasan Kolom")
-	col_info = pd.DataFrame(
-		{
-			"dtype": df_filtered.dtypes.astype(str),
-			"non_null": df_filtered.notna().sum(),
-			"unique": df_filtered.nunique(dropna=True),
-		}
-	).reset_index(names="column")
-	st.dataframe(col_info, width="stretch")
+with col3_1:
+    st.markdown("**Rata-rata Jam Tidur per Kategori Performa**")
+    if 'Sleep_Hours' in df_filtered.columns and 'Performance_Category' in df_filtered.columns:
+        sleep_means = df_filtered.groupby('Performance_Category')['Sleep_Hours'].mean()
+        st.bar_chart(sleep_means)
 
-	numeric_df = df_filtered.select_dtypes(include="number")
-	if not numeric_df.empty:
-		st.subheader("Statistik Numerik")
-		st.dataframe(numeric_df.describe().T, width="stretch")
+with col3_2:
+    st.markdown("**Jumlah Siswa berdasarkan Keterlibatan Orang Tua**")
+    if 'Parental_Involvement' in df_filtered.columns and 'Performance_Category' in df_filtered.columns:
+        parent_perf = df_filtered.groupby(['Parental_Involvement', 'Performance_Category']).size().unstack()
+        # Urutkan index jika memungkinkan
+        parent_perf = parent_perf.reindex(['Low', 'Medium', 'High'])
+        st.bar_chart(parent_perf)
 
-	checks: list[dict[str, object]] = []
 
-	def add_check(label: str, mask: pd.Series):
-		count = int(mask.sum())
-		if count > 0:
-			checks.append({"check": label, "count": count})
+# ==========================================
+# INSIGHT 4: INTERVENSI AKADEMIK (GAP ANALYSIS)
+# ==========================================
+st.markdown('<div class="section-title">Peluang Intervensi Akademik (Gap Analysis)</div>', unsafe_allow_html=True)
+st.markdown("Persentase selisih (*gap*) nilai fitur antara siswa **High Performance** dan **Low Performance**.")
 
-	if "Hours_Studied" in df_filtered.columns:
-		s = pd.to_numeric(df_filtered["Hours_Studied"], errors="coerce")
-		add_check("Hours_Studied > 24", s > 24)
+if 'Performance_Category' in df_filtered.columns:
+    high_df = df_filtered[df_filtered['Performance_Category'] == 'High']
+    low_df = df_filtered[df_filtered['Performance_Category'] == 'Low']
+    
+    if not high_df.empty and not low_df.empty:
+        metrics_to_compare = ['Hours_Studied', 'Attendance', 'Previous_Scores', 'Sleep_Hours', 'Tutoring_Sessions']
+        available_metrics = [m for m in metrics_to_compare if m in df.columns]
+        
+        gap_data = []
+        for m in available_metrics:
+            high_val = high_df[m].mean()
+            low_val = low_df[m].mean()
+            gap_pct = ((high_val - low_val) / low_val) * 100 if low_val > 0 else 0
+            gap_data.append({
+                'Metric': m,
+                'Gap (%)': gap_pct
+            })
+        
+        gap_df = pd.DataFrame(gap_data)
+        gap_df.set_index('Metric', inplace=True)
+        gap_df = gap_df.sort_values('Gap (%)', ascending=True)
 
-	if "Sleep_Hours" in df_filtered.columns:
-		s = pd.to_numeric(df_filtered["Sleep_Hours"], errors="coerce")
-		add_check("Sleep_Hours > 24", s > 24)
+        st.bar_chart(gap_df['Gap (%)'])
+    else:
+        st.info("Pilih setidaknya data Low dan High performance di Sidebar untuk melihat Gap Analysis.")
 
-	if "Attendance" in df_filtered.columns:
-		s = pd.to_numeric(df_filtered["Attendance"], errors="coerce")
-		add_check("Attendance > 100", s > 100)
-		add_check("Attendance < 0", s < 0)
-
-	if checks:
-		st.subheader("Pemeriksaan Nilai di Luar Rentang Umum")
-		st.warning("Ada beberapa nilai yang berada di luar rentang umum (cek kembali data sumber).")
-		st.dataframe(pd.DataFrame(checks), width="stretch")
