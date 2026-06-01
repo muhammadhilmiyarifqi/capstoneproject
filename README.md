@@ -46,3 +46,5 @@ CAPSTONE/
 │   └── frontend/           # Aplikasi Web berbasis React.js
 └── student_performance_dataset.csv # Dataset utama performa siswa
 ```
+---
+Link deploy: https://edutrack-khaki-sigma.vercel.app/
