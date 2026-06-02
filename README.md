@@ -48,3 +48,49 @@ CAPSTONE/
 ```
 ---
 Link deploy: https://edutrack-khaki-sigma.vercel.app/
+
+---
+
+## 📊 Streamlit Dashboard
+
+Dashboard interaktif yang menyajikan visualisasi data performa belajar siswa.
+
+### 💻 Cara Menjalankan Secara Lokal
+
+1. Pastikan library yang diperlukan sudah terinstall:
+   ```bash
+   pip install -r requirements.txt
+   ```
+2. Jalankan server Streamlit:
+   ```bash
+   streamlit run dashboard.py
+   ```
+3. Buka browser pada alamat `http://localhost:8501`.
+
+### 🚀 Cara Mendeploy ke Streamlit Cloud
+
+Untuk mempublikasikan dashboard agar dapat diakses oleh publik secara gratis menggunakan **Streamlit Community Cloud**:
+
+1. **Push Perubahan Ke GitHub**:
+   Pastikan file `dashboard.py` dan `requirements.txt` yang baru dibuat di root direktori sudah di-commit dan di-push ke repository GitHub Anda:
+   ```bash
+   git add requirements.txt README.md
+   git commit -m "Add requirements.txt and deployment guides for Streamlit"
+   git push origin main
+   ```
+
+2. **Daftar / Login ke Streamlit Cloud**:
+   - Kunjungi [Streamlit Community Cloud](https://share.streamlit.io/).
+   - Login menggunakan akun **GitHub** Anda yang terhubung dengan repository proyek ini.
+
+3. **Deploy Aplikasi Baru**:
+   - Klik tombol **"Create app"** atau **"New app"** di pojok kanan atas dashboard Streamlit.
+   - Isi form konfigurasi sebagai berikut:
+     - **Repository**: Pilih repository GitHub capstone proyek ini (misalnya: `muhammadhilmiyarifqi/capstoneproject`).
+     - **Branch**: Pilih branch utama (biasanya `main` atau `master`).
+     - **Main file path**: Isi dengan `dashboard.py` (karena file dashboard berada di root direktori).
+   - Klik **"Deploy!"**.
+
+4. **Tunggu Proses Build**:
+   Streamlit Cloud akan otomatis membaca file `requirements.txt`, menginstall dependensi, dan meluncurkan dashboard Anda. Setelah selesai, Anda akan mendapatkan tautan publik gratis untuk dashboard Anda!
+
