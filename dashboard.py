@@ -261,10 +261,10 @@ sidebar_titles = {
 }
 
 opt_map = {
-    'Low': 'RENDAH', 'Medium': 'SEDANG', 'High': 'TINGGI',
-    'Public': 'PUBLIK', 'Private': 'PRIVAT',
-    'Male': 'LAKI-LAKI', 'Female': 'PEREMPUAN',
-    'Yes': 'YA', 'No': 'TIDAK'
+    'Low': 'Rendah', 'Medium': 'Sedang', 'High': 'Tinggi',
+    'Public': 'Publik', 'Private': 'Privat',
+    'Male': 'Laki-laki', 'Female': 'Perempuan',
+    'Yes': 'Ya', 'No': 'Tidak'
 }
 
 for col in cat_cols:
@@ -283,7 +283,7 @@ for col in cat_cols:
             options=radio_options,
             index=0,
             horizontal=True,
-            format_func=lambda x: "SEMUA" if x == 'Semua' else opt_map.get(str(x), str(x).upper())
+            format_func=lambda x: "Semua" if x == 'Semua' else opt_map.get(str(x), str(x).title())
         )
         
         if selected_val == 'Semua':
