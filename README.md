@@ -47,13 +47,14 @@ CAPSTONE/
 └── student_performance_dataset.csv # Dataset utama performa siswa
 ```
 ---
-Link deploy: https://edutrack-khaki-sigma.vercel.app/
+- **Web App (React/Vite)**: [https://edutrack-khaki-sigma.vercel.app/](https://edutrack-khaki-sigma.vercel.app/)
+- **Streamlit Dashboard**: [https://edutrack-dashboard-capstone.streamlit.app/](https://edutrack-dashboard-capstone.streamlit.app/)
 
 ---
 
 ## 📊 Streamlit Dashboard
 
-Dashboard interaktif yang menyajikan visualisasi data performa belajar siswa.
+Dashboard interaktif yang menyajikan visualisasi data performa belajar siswa. **[https://edutrack-dashboard-capstone.streamlit.app/](https://edutrack-dashboard-capstone.streamlit.app/)**
 
 ### 💻 Cara Menjalankan Secara Lokal
 
