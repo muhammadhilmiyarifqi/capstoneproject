@@ -1,5 +1,5 @@
 # EduTrack AI - DBS Coding Camp Capstone Project
-absen
+
 EduTrack AI adalah platform berbasis web yang mengintegrasikan Artificial Intelligence (AI) untuk menganalisis, memprediksi, dan memberikan rekomendasi terkait performa akademik siswa. Proyek ini dikembangkan sebagai **Capstone Project** untuk **DBS Coding Camp**.
 
 ## 🌟 Fitur Utama
